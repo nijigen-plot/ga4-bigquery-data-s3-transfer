@@ -8,7 +8,7 @@ GA4 BigQuery ExportデータをAWS S3に転送しAthenaでクエリができる�
 
 用いるサービスアカウントは以下コマンド実行したのち文字列をAWS Secret Managerへ登録
 ```
-$ base64 voltaic-country-281210-1e6a73a14fc6.json | tr -d '\n'
+$ base64 service_account_secret_key.json | tr -d '\n'
 ```
 
 # ローカル実行
