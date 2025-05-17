@@ -1,0 +1,41 @@
+version: 0.2
+
+env:
+  variables:
+    RESOURCE_BUCKET: 'nijipro-ga4-bigquery-to-s3-resources'
+    ECR_REPOSITORY_NAME: 'ga4-bigquery-to-s3'
+
+phases:
+  install:
+    commands:
+      - sudo apt-get update
+      - pip install boto3==1.26.130
+  pre_build:
+    commands:
+      - echo check aws cli version
+      - aws --version
+  build:
+    commands:
+      - ORIGINAL_DIR=$(pwd)
+      - echo "Docker Image Build & Push"
+      - echo $AWS_ACCOUNT_ID
+      - docker build --platform linux/x86_64 -t $ECR_REPOSITORY_NAME .
+      - >
+        aws ecr get-login-password --region ap-northeast-1 |
+        docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com
+      - docker tag $ECR_REPOSITORY_NAME:latest $AWS_ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com/$ECR_REPOSITORY_NAME:latest
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.ap-northeast-1.amazonaws.com/$ECR_REPOSITORY_NAME:latest
+      - cd $ORIGINAL_DIR
+
+      - echo AWS resource copy to S3
+      - aws s3 cp statemachine.asl.yml s3://$RESOURCE_BUCKET/statemachine.asl.yml
+      - echo get StepFunctions YAML Version ID
+      - STATE_MACHINE_VERSION=$(aws s3api list-object-versions --bucket $RESOURCE_BUCKET --prefix statemachine.asl.yml | jq -r '.Versions[0].VersionId')
+  post_build:
+    commands:
+      - echo deploy cloudformation
+      - aws cloudformation package --template-file cloudformation.yml --s3-bucket $RESOURCE_BUCKET --s3-prefix cloudformation/package --output-template-file /tmp/cloudformation.yml --force-upload
+      - |
+        aws cloudformation deploy --no-fail-on-empty-changeset --s3-bucket $RESOURCE_BUCKET --s3-prefix cloudformation/deploy --template-file /tmp/cloudformation.yml --stack-name $ECR_REPOSITORY_NAME --tags ExecutionType=Automation --force-upload --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
+        --parameter-overrides \
+        "StateMachineVersion"=$STATE_MACHINE_VERSION\

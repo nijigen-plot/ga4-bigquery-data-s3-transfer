@@ -1,0 +1,17 @@
+Comment: Transfer GA4 BigQuery log data to S3 (and deploy to Athena)
+StartAt: GA4 BigQuery to S3
+States:
+    GA4 BigQuery to S3:
+        Type: Task
+        Resource: arn:aws:states:::batch:submitJob.sync
+        Parameters:
+            JobName: ga4-bigquery-to-s3
+            JobQueue: ga4-bigquery-to-s3-job-queue
+            JobDefinition: ga4-bigquery-to-s3-job-definition
+        Next: Run Crawler
+    Run Crawler:
+        Type: Task
+        Resource: arn:aws:states:::aws-sdk:glue:startCrawler
+        Parameters:
+            Name: ga4-biquery-to-s3-athena-table-partition-crawler
+        End: true
