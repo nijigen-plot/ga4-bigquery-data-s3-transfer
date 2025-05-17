@@ -110,7 +110,7 @@ Resources:
       StateMachineType: STANDARD
       DefinitionS3Location:
         Bucket: !Sub ${ResourceBucket}
-        Key: ga4_bigquery_to_s3.yml
+        Key: statemachine.asl.yml
         Version: !Ref StateMachineVersion
       RoleArn: !GetAtt IAMRole.Arn
   # Scheduler
