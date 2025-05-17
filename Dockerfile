@@ -25,10 +25,6 @@ ENV PATH=$PATH:/google-cloud-sdk/bin
 RUN gcloud --version
 RUN bq version
 
-# Set up gcloud. Use --build-arg when building
-ARG GCP_PROJECT_ID
-RUN gcloud config set project $GCP_PROJECT_ID
-
 COPY main.py /app/main.py
 COPY requirements.txt /app/requirements.txt
 

@@ -115,6 +115,15 @@ def gcloud_auth(env : dict) -> None:
     else:
         logger.info(f"Command output: {result.stdout}")
 
+def gcloud_initialize(project_id : str) -> None:
+    query = f"gcloud config set project {project_id}"
+    result = subprocess.run(["sh", "-c", query], capture_output=True, text=True, env=env)
+    if result.returncode != 0:
+        logger.error(f"Command failed with error: {result.stderr}")
+        logger.error(f"Command output: {result.stdout}")
+        raise RuntimeError(f"Command failed with error: {result.stderr}")
+    else:
+        logger.info(f"Command output: {result.stdout}")
 
 if __name__ == "__main__":
     try:
@@ -138,6 +147,7 @@ if __name__ == "__main__":
 
         with open("/tmp/credentials.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+        gcloud_initialize(ga4_bigquery_to_s3_setting[env['AWS_SECRETS_MANAGER_BIGQUERY_DATASET_ID']].split(':')[0])
         gcloud_auth(env)
         run_bq_extract(target_date, env, ga4_bigquery_to_s3_setting)
         gcs_to_s3(env, ga4_bigquery_to_s3_setting)
