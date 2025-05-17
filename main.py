@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
         ga4_bigquery_to_s3_setting = json.loads(get_secret(
                 secret_name=env['AWS_SECRETS_MANAGER_NAME'],
-                region_name=env['AWS_REGION_NAME'],
+                region_name=env['AWS_REGION'],
                 aws_profile=aws_profile
             ))
         base64_encoded_credentials = ga4_bigquery_to_s3_setting[env['AWS_SECRETS_MANAGER_BASE64_ENCODED_KEY_NAME']]
