@@ -140,12 +140,12 @@ Resources:
       Role: !GetAtt IAMRole.Arn
       RecrawlPolicy:
         RecrawlBehavior: CRAWL_EVERYTHING
-      DatabaseName: external_data
+      DatabaseName: default
       Targets:
         CatalogTargets:
-          - DatabaseName: external_data
+          - DatabaseName: default
             Tables:
-              - ga4_analytics_250077097
+              - ga4_analytics_291814084
       SchemaChangePolicy:
         UpdateBehavior: LOG
         DeleteBehavior: LOG
