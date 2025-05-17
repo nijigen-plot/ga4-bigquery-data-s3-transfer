@@ -85,6 +85,21 @@ Resources:
         JobRoleArn: !GetAtt IAMRole.Arn
         EphemeralStorage:
           SizeInGiB: 50
+        Environment:
+          - Name: AWS_SECRETS_MANAGER_NAME
+            Value: !Sub ${ResourcePrefix}
+          - Name: AWS_REGION
+            Value: ap-northeast-1
+          - Name: GCS_REGION_NAME
+            Value: asia-northeast1
+          - Name: AWS_SECRETS_MANAGER_BASE64_ENCODED_KEY_NAME
+            Value: service_account_base64_encoded_key
+          - Name: AWS_SECRETS_MANAGER_GCS_EXPORT_URI
+            Value: gcs_export_uri
+          - Name: AWS_SECRETS_MANAGER_BIGQUERY_DATASET_ID
+            Value: bigquery_dataset_id
+          - Name: AWS_SECRETS_MANAGER_S3_TRANSFER_URI
+            Value: s3_transfer_uri
       PlatformCapabilities:
         - FARGATE
   # StepFunctions
