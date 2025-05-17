@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Set up GA4 BigQuery to S3 Infrastructure
+Parameters:
+  ResourcePrefix:
+    Type: String
+    Default: ga4-bigquery-to-s3
+  CidrBlock:
+    Type: String
+    Default: 192.168.0.0/22
+  StateMachineVersion:
+    Type: String
+    Default: default
+  ResourceBucket:
+    Type: String
+    Default: nijipro-ga4-bigquery-to-s3-resources
+
+Resources:
+  # IAM Role
+  IAMRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      RoleName: !Sub ${ResourcePrefix}-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+                - glue.amazonaws.com
+                - batch.amazonaws.com
+                - ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/PowerUserAccess
+  # Batch
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Type: MANAGED
+      ServiceRole: !GetAtt IAMRole.Arn
+      ComputeEnvironmentName: !Sub ${ResourcePrefix}-compute-env
+      ComputeResources:
+        Subnets:
+          - !Ref Subnet
+        Type: FARGATE
+        InstanceTypes: []
+        Ec2Configuration: []
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+        MaxvCpus: 16
+      State: ENABLED
+  JobQueue:
+    Type: AWS::Batch::JobQueue
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      ComputeEnvironmentOrder:
+        - ComputeEnvironment: !Ref ComputeEnvironment
+          Order: 1
+      Priority: 500
+      State: ENABLED
+      JobQueueName: !Sub ${ResourcePrefix}-job-queue
+  JobDefinition:
+    Type: AWS::Batch::JobDefinition
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      JobDefinitionName: !Sub ${ResourcePrefix}-job-definition
+      Type: container
+      ContainerProperties:
+        Image: !Sub ${AWS::AccountId}.dkr.ecr.ap-northeast-1.amazonaws.com/${ResourcePrefix}:latest
+        ResourceRequirements:
+          - Type: VCPU
+            Value: "1"
+          - Type: MEMORY
+            Value: "2048"
+        NetworkConfiguration:
+          AssignPublicIp: ENABLED
+        ExecutionRoleArn: !GetAtt IAMRole.Arn
+        JobRoleArn: !GetAtt IAMRole.Arn
+        EphemeralStorage:
+          SizeInGiB: 50
+      PlatformCapabilities:
+        - FARGATE
+  # StepFunctions
+  StateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub ${ResourcePrefix}-functions
+      StateMachineType: STANDARD
+      DefinitionS3Location:
+        Bucket: !Sub ${ResourceBucket}
+        Key: ga4_bigquery_to_s3.yml
+        Version: !Ref StateMachineVersion
+      RoleArn: !GetAtt IAMRole.Arn
+  # Scheduler
+  DailyExecuteScheduler:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Description: GA4 BigQuery to S3 and Athena Load Partitions Daily Execution
+      Name: !Sub ${ResourcePrefix}-daily-execute-scheduler
+      FlexibleTimeWindow:
+        Mode: FLEXIBLE
+        MaximumWindowInMinutes: 15
+      ScheduleExpression: cron(30 15 * * ? *)
+      Target:
+        Arn: !Ref StateMachine
+        RoleArn: !GetAtt IAMRole.Arn
+        Input: |
+          {
+          }
+  # Glue Crawler
+  AthenaTablePartitionCrawler:
+    Type: AWS::Glue::Crawler
+    Properties:
+      Name: !Sub ${ResourcePrefix}-athena-table-partition-crawler
+      Description: Glue Crawler for GA4 BigQuery to S3 Athena Table Partition
+      # コンソールで可能なカラムを追加するのオプションはCFnでは以下のように設定する
+      Configuration: '{"Version": 1.0, "CrawlerOutput": {"Tables": {"AddOrUpdateBehavior": "MergeNewColumns"}}, "Grouping": {"TableGroupingPolicy": "CombineCompatibleSchemas"}}'
+      Role: !GetAtt IAMRole.Arn
+      RecrawlPolicy:
+        RecrawlBehavior: CRAWL_EVERYTHING
+      DatabaseName: external_data
+      Targets:
+        CatalogTargets:
+          - DatabaseName: external_data
+            Tables:
+              - ga4_analytics_250077097
+      SchemaChangePolicy:
+        UpdateBehavior: LOG
+        DeleteBehavior: LOG
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Sub ${CidrBlock}
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+      InstanceTenancy: default
+      Tags:
+      - Key: Name
+        Value: !Sub ${ResourcePrefix}-vpc
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Application
+        Value:
+          Ref: AWS::StackId
+      - Key: Network
+        Value: Public
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: AttachGateway
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: !Sub ${ResourcePrefix}-rtb
+      - Key: Application
+        Value:
+          Ref: AWS::StackId
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !Select [ 0, !Cidr [ !GetAtt VPC.CidrBlock, 4, 8 ]]
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: Subnet
+      RouteTableId:
+        Ref: PublicRouteTable
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: VPC
+      GroupDescription: Marker security group for Application server.
+      Tags:
+      - Key: Name
+        Value: !Sub ${ResourcePrefix}-sg
