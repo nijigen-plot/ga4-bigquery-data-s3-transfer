@@ -16,7 +16,7 @@ $ base64 service_account_secret_key.json | tr -d '\n'
 ## --build-argでGCP_PROJECT_ID=を指定
 
 ```
-$ docker build -t ga4-bigquery-to-s3 . --build-arg GCP_PROJECT_ID=
+$ docker build -t ga4-bigquery-to-s3 .
 $ docker run -v ~/.aws:/root/.aws -v $(pwd)/.env:/app/.env ga4-bigquery-to-s3:latest
 ```
 
