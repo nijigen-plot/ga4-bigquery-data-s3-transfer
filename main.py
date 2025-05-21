@@ -43,9 +43,9 @@ def get_secret(secret_name : str, region_name : str, aws_profile : str) -> str:
 
 def arg_parser() -> str:
     parser = argparse.ArgumentParser(
-        description="指定日付のGA4 BigQueryデータをS3に転送します。日付がない場合は自動的に2日前のデータを取得します"
+        description="--target-date にて指定日付のGA4 BigQueryデータをS3に転送します。日付がない場合は自動的に2日前のデータを取得します。"
     )
-    parser.add_argument("--target_date", type=str, help="YYYY-MM-DD形式の日付を指定してください。")
+    parser.add_argument("--target-date", type=str, help="YYYY-MM-DD形式の日付を指定してください。")
     args = parser.parse_args()
     if args.target_date:
         target_date = convert_date_format(args.target_date)
@@ -68,6 +68,9 @@ def convert_date_format(date_str) -> str:
 
 
 def run_bq_extract(converted_date: str, env : dict, secret_manager_json : dict) -> None:
+    logger.info(f"GA4 BigQueryからGCSにデータをエクスポートします。")
+    logger.info(f"テーブル : {secret_manager_json[env['AWS_SECRETS_MANAGER_BIGQUERY_DATASET_ID']].replace(':','.')}.events_{converted_date}")
+    logger.info(f"エクスポート先 : gs://{secret_manager_json[env['AWS_SECRETS_MANAGER_GCS_EXPORT_URI']]}/event_date_part={converted_date}/export-*.parquet")
     query = (
         "bq extract "
         f"--location={env['GCS_REGION_NAME']} "
@@ -77,7 +80,6 @@ def run_bq_extract(converted_date: str, env : dict, secret_manager_json : dict) 
         f"{secret_manager_json[env['AWS_SECRETS_MANAGER_BIGQUERY_DATASET_ID']]}.events_{converted_date} "
         f"gs://{secret_manager_json[env['AWS_SECRETS_MANAGER_GCS_EXPORT_URI']]}/event_date_part={converted_date}/export-*.parquet"
     )
-
     result = subprocess.run(["sh", "-c", query], capture_output=True, text=True, env=env)
     if result.returncode != 0:
         logger.error(f"Command failed with error: {result.stderr}")
@@ -88,6 +90,8 @@ def run_bq_extract(converted_date: str, env : dict, secret_manager_json : dict) 
 
 
 def gcs_to_s3(env : dict, secret_manager_json : dict) -> None:
+    logger.info(f"GCSからS3にデータを転送します。")
+    logger.info(f"転送先 :s3://{secret_manager_json[env['AWS_SECRETS_MANAGER_S3_TRANSFER_URI']]} ")
     query = (
         "gcloud storage rsync "
         f"gs://{secret_manager_json[env['AWS_SECRETS_MANAGER_GCS_EXPORT_URI']]} "

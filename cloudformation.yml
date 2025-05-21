@@ -35,7 +35,7 @@ Resources:
                 - ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/PowerUserAccess
+        - arn:aws:iam::aws:policy/AdministratorAccess
   # Batch
   ComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
