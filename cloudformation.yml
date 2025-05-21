@@ -201,6 +201,7 @@ Resources:
   Subnet:
     Type: AWS::EC2::Subnet
     Properties:
+      MapPublicIpOnLaunch: true
       VpcId:
         Ref: VPC
       AvailabilityZone: !Select [ 0, !GetAZs ]
