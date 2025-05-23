@@ -13,5 +13,5 @@ States:
         Type: Task
         Resource: arn:aws:states:::aws-sdk:glue:startCrawler
         Parameters:
-            Name: ga4-biquery-to-s3-athena-table-partition-crawler
+            Name: ga4-bigquery-to-s3-athena-table-partition-crawler
         End: true
