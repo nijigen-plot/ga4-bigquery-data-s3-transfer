@@ -2,6 +2,10 @@
 
 GA4 BigQuery ExportデータをAWS S3に転送しAthenaでクエリができるようにします
 
+紹介記事はこちら
+
+https://qiita.com/nijigen_plot/items/436ccc25e9b58b0783b3
+
 # GCP側手動対処
 
 ## サービスアカウントの秘密鍵
