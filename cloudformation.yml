@@ -4,15 +4,18 @@ Parameters:
   ResourcePrefix:
     Type: String
     Default: ga4-bigquery-to-s3
+    Description: Prefix for all resources
   CidrBlock:
     Type: String
     Default: 192.168.0.0/22
   StateMachineVersion:
     Type: String
     Default: default
+    Description: This parameter is used to update the Step Functions state machine by retrieving the version ID of the object stored in S3 with versioning enabled.
   ResourceBucket:
     Type: String
     Default: nijipro-ga4-bigquery-to-s3-resources
+    Description: Please specify an S3 bucket with versioning enabled.
 
 Resources:
   # IAM Role
